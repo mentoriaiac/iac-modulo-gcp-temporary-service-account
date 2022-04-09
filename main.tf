@@ -29,11 +29,6 @@ locals {
   key_json = base64decode(google_service_account_key.key.private_key)
 }
 
-resource "google_project_service" "compute_api" {
-  service            = "compute.googleapis.com"
-  disable_on_destroy = false
-}
-
 resource "random_pet" "service_account" {
   count     = local.use_random ? 1 : 0
   length    = 2
