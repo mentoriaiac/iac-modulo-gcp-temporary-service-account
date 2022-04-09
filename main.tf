@@ -74,5 +74,5 @@ resource "local_sensitive_file" "key" {
 
   content         = local.key_json
   filename        = var.key_file
-  file_permission = "0400"
+  file_permission = "0600"
 }
