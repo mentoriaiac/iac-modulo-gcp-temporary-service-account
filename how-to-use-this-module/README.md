@@ -1,132 +1,140 @@
-# Template de módulo Terraform
+# Utilizando o módulo `iac-modulo-gcp-temporary-service-account`
 
 ## Dependências
 
 Para realizar os testes localmente é necessário:
 
-| Ferramentas | Versão | Instalação |
-| ----------- | ------ | ---------- |
-| Terraform   | >= 1.0.0 | [Acesse](https://learn.hashicorp.com/tutorials/terraform/install-cli) |
-| Docker      | >= 20.10 | [Acesse](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04-pt) |
-| Shipyard.run | >= 0.3.36 | [Acesse](https://shipyard.run/docs/install) |
-| Git |  >= 2.30.2 | [Acesse](https://git-scm.com/downloads) |
+| Ferramentas  | Versão    | Instalação                                                            |
+|--------------|-----------|-----------------------------------------------------------------------|
+| Terraform    | >= 1.0.0  | [Acesse](https://learn.hashicorp.com/tutorials/terraform/install-cli) |
+| `gcloud` CLI | >= 38.0.0 | [Acesse](https://cloud.google.com/sdk/docs/install)                   |
 
-# Criando o ambiente para a API do Hashicups
+## Passo-a-passo
 
-Instalação do Shipyard.run
+Crie um projeto no [console da GCP](https://console.cloud.google.com) e copie o
+ID gerado.
 
+Faça login na GCP usando a CLI do `gcloud` e defina o projeto criado como
+padrão:
+
+```console
+$ export GCP_PROJECT=<ID DO PROJETO>
+$ gcloud auth application-default login
+Your browser has been opened to visit:
+
+    https://accounts.google.com/o/oauth2/auth?response_type=code...
+
+$ gcloud config set project $GCP_PROJECT
+Updated property [core/project].
 ```
 
-curl https://shipyard.run/install | bash
+Inicialize o Terraform:
 
+```console
+$ terraform init
+Initializing modules...
+- tmp_packer_key in ..
+
+Initializing the backend...
+
+Initializing provider plugins...
+- Finding hashicorp/google versions matching "~> 4.16.0"...
+- Finding hashicorp/random versions matching "~> 3.0"...
+- Finding hashicorp/local versions matching "~> 2.0"...
+- Finding hashicorp/time versions matching "~> 0.0"...
+- Installing hashicorp/google v4.16.0...
+- Installed hashicorp/google v4.16.0 (signed by HashiCorp)
+- Installing hashicorp/random v3.1.2...
+- Installed hashicorp/random v3.1.2 (signed by HashiCorp)
+- Installing hashicorp/local v2.2.2...
+- Installed hashicorp/local v2.2.2 (signed by HashiCorp)
+- Installing hashicorp/time v0.7.2...
+- Installed hashicorp/time v0.7.2 (signed by HashiCorp)
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
 ```
 
-Clone o repositório e acesse a pasta blueprint
+Aplique a configuração de exemplo:
 
+```console
+$ terraform apply -var project_id=$GCP_PROJECT
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.tmp_packer_key.google_project_iam_binding.roles["compute.instanceAdmin.v1"] will be created
+  + resource "google_project_iam_binding" "roles" {
+      + etag    = (known after apply)
+      + id      = (known after apply)
+      + members = (known after apply)
+      + project = "..."
+      + role    = "roles/compute.instanceAdmin.v1"
+
+      + condition {
+          + expression = (known after apply)
+          + title      = (known after apply)
+        }
+    }
+
+  # module.tmp_packer_key.google_project_iam_binding.roles["iam.serviceAccountUser"] will be created
+  + resource "google_project_iam_binding" "roles" {
+      + etag    = (known after apply)
+      + id      = (known after apply)
+      + members = (known after apply)
+      + project = "..."
+      + role    = "roles/iam.serviceAccountUser"
+
+      + condition {
+          + expression = (known after apply)
+          + title      = (known after apply)
+        }
+    }
+
+...
+
+Plan: 8 to add, 0 to change, 0 to destroy.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value:
 ```
 
-git clone https://github.com/hashicorp-demoapp/product-api-go
-cd product-api-go/blueprint/
+Confirme a ação e aguarde a execução terminar. Verifique que a service account
+e as roles foram criadas:
 
-```
+```console
+$ gcloud iam service-accounts list
+DISPLAY NAME                            EMAIL                                               DISABLED
+packer                                  packer@...                                          False
+...
 
-Inicie a aplicação executando o comando a baixo
+$ gcloud projects get-iam-policy $GCP_PROJECT
+bindings:
+- condition:
+    expression: request.time < timestamp("2022-04-09T22:34:42Z")
+    title: expires_at_2022-04-09T22:34:42Z
+  members:
+  - serviceAccount:packer@....iam.gserviceaccount.com
+  role: roles/compute.instanceAdmin.v1
+...
 
-```
-
-shipyard run
-
-```
-
-Saída Esperada
-
-```bash
-
-The API can be accessed at
-[http://localhost:19090/coffees](http://localhost:19090/coffees)
-
-```
-
-Crie um usuário para a aplicação
-
-```
-
-curl -X POST localhost:19090/signup -d '{"username":"mentoriaiac", "password":"2021@mentoria"}'
-
-```
-
-# Utilizando o módulo
-
-### Primeiro Passo:
-
-Acesse o repósitorio do módulo :
-
-<pre>
-
-├── product-api-go
-│   ├── blueprint
-│   ├── client
-│   ├── config
-│   ├── data
-│   │   └── model
-│   ├── database
-│   ├── docker_compose
-│   ├── functional_tests
-│   │   └── features
-│   ├── handlers
-│   └── telemetry
-<b>└── template-modulo-terraform </b>
-    └── how-to-use-this-module
-
-</pre>
-
-Depois acesse a pasta how-to-use-this-module
-
-```
-
-cd ./how-to-use-this-module/
-
-```
-
-Inicialize o Terraform
-
-```
-
-terraform init
-
-```
-
-### Segundo Passo:
-
-Personalize o `terrafile.tf`:
-
-```
- order = {
-    Terraspresso = 4,
-    Nomadicano = 10,
-    "Vagrante espresso" = 4,
-    Packer Spiced Latte = 6,
-    Vaulatte = 8,
-    Connectaccino = 2
-    }  
-
-```
-
-Tente criar o primeiro plan:
-```
-
-terraform plan
-
-```
-
-Obs.: Caso retorne erro 401, verifique o usuário e a senha.
-
-### Terceiro Passo:
-
-Aplique suas mudanças:
-
-```
-
-terraform apply
-
+$ ls .keys
+./  ../  packer.json
 ```
