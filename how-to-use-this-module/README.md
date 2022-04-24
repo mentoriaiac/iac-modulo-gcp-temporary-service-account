@@ -19,7 +19,7 @@ padrão:
 
 ```console
 $ export GCP_PROJECT=<ID DO PROJETO>
-$ gcloud auth login
+$ gcloud auth application-default login
 Your browser has been opened to visit:
 
     https://accounts.google.com/o/oauth2/auth?response_type=code...
